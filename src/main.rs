@@ -18,10 +18,7 @@ fn main() -> io::Result<()> {
     let map_macs = crear_cache_macs();
 
     let now0 = Instant::now();
-    // for (fabricante, cantidad) in fab_mas_comunes(dataset, &map_macs)? {
-    //     println!("{:<40} {:>6}", fabricante, cantidad);
-    // }
-    fab_mas_comunes(dataset, &map_macs)?;
+    let comunes = fab_mas_comunes(dataset, &map_macs)?;
     println!("fab_mas_comunes: {} ms", now0.elapsed().as_millis());
 
     let now1 = Instant::now();
@@ -29,19 +26,29 @@ fn main() -> io::Result<()> {
     println!("generar_grafico: {} ms", now1.elapsed().as_millis());
 
     let now2 = Instant::now();
-    total_bytes(dataset)?;
+    let dic: TripleHashMap = total_bytes(dataset)?;
     println!("total_bytes: {} ms", now2.elapsed().as_millis());
 
     let mac_ap = "40A6E8:6C:5B:05";
     let timestamp = "1607173201";
     let now3 = Instant::now();
-    clientes_unicos(dataset, mac_ap, timestamp)?;
+    let cli_unic = clientes_unicos(dataset, mac_ap, timestamp)?;
     println!("clientes_unicos: {} ms", now3.elapsed().as_millis());
 
-    let mac_cliente = "C46699:FD:B6:4E";
+    let mac_cliente = "4C3C16:46:65:62";
     let now4 = Instant::now();
-    cambio_edificio(dataset, aps_espol, mac_cliente)?;
+    let cambios = cambio_edificio(dataset, aps_espol, mac_cliente)?;
     println!("cambio_edificio: {} ms", now4.elapsed().as_millis());
+
+    for (fabricante, cantidad) in comunes {
+        println!("{:<40} {:>6}", fabricante, cantidad);
+    }
+
+    println!("\n{:?}\n", dic.keys());
+
+    println!("{:?}\n", cli_unic);
+
+    println!("{:?}\n", cambios);
 
     Ok(())
 }
@@ -189,30 +196,6 @@ fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
         );
 
     Ok(result)
-    // let timestamp: i64 = line[..10].parse().unwrap();
-    // let fecha = NaiveDateTime::from_timestamp(timestamp, 0)
-    //     .date()
-    //     .to_string();
-    // let mac_ap = line[27..42].to_owned();
-    // let bts: u32 = line[43..49].parse().unwrap();
-    // if &line[50..56] == "upload" {
-    //     *result
-    //         .entry(fecha)
-    //         .or_default()
-    //         .entry(mac_ap)
-    //         .or_default()
-    //         .entry("recibidos".to_owned())
-    //         .or_insert(0) += bts;
-    // } else {
-    //     *result
-    //         .entry(fecha)
-    //         .or_default()
-    //         .entry(mac_ap)
-    //         .or_default()
-    //         .entry("enviados".to_owned())
-    //         .or_insert(0) += bts;
-    // }
-    // Ok(result)
 }
 
 fn clientes_unicos<P: AsRef<Path>>(
@@ -293,21 +276,6 @@ fn cambio_edificio<P: AsRef<Path>>(
     }
     Ok(lista)
 }
-
-// fn crear_cache_macs() -> io::Result<HashMap<String, String>> {
-//     let response = ureq::get("http://standards-oui.ieee.org/oui.txt")
-//         .call()
-//         .expect("Error al conectarse a IEEE");
-//     let reader = BufReader::new(response.into_reader());
-//     let mut map_macs = HashMap::with_capacity(29231);
-//     for line in reader.lines() {
-//         let line = line?;
-//         if line.get(12..=18).map_or(false, |s| s == "base 16") {
-//             map_macs.insert(line[..6].to_owned(), line[21..].trim_start().to_owned());
-//         }
-//     }
-//     Ok(map_macs)
-// }
 
 #[rustfmt::skip]
 fn crear_cache_macs() -> FxHashMap<&'static str, &'static str> {
