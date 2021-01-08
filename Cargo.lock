@@ -560,6 +560,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyweekend-rust"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "plotters",
+ "rayon",
+ "rustc-hash",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,16 +618,6 @@ dependencies = [
  "getrandom",
  "redox_syscall",
  "rust-argon2",
-]
-
-[[package]]
-name = "rust"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "plotters",
- "rayon",
- "rustc-hash",
 ]
 
 [[package]]
