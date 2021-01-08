@@ -1,4 +1,3 @@
-use chashmap::CHashMap;
 use chrono::NaiveDateTime;
 use plotters::prelude::*;
 use rayon::prelude::*;
@@ -11,6 +10,7 @@ use std::{
     path::Path,
     time::Instant,
 };
+
 type CustomHasher = BuildHasherDefault<FxHasher>;
 fn main() -> io::Result<()> {
     let dataset = Path::new("../datasets/logs-conexion.csv");
@@ -135,12 +135,10 @@ fn generar_grafico<P: AsRef<Path>>(dataset: P, map_macs: &FxHashMap<&str, &str>)
     Ok(())
 }
 type TripleHashMap = FxHashMap<String, FxHashMap<String, FxHashMap<String, u32>>>;
-type DoubleHashMap = FxHashMap<String, FxHashMap<String, u32>>;
 fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
     let dt = File::open(dataset)?;
-    let reader_dt = BufReader::with_capacity(8 * 1024, dt);
-    let map = CHashMap::with_capacity(179974);
-    reader_dt
+    let reader_dt = BufReader::new(dt);
+    let result = reader_dt
         .lines()
         .skip(1)
         .par_bridge()
@@ -158,15 +156,39 @@ fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
                 (fecha, mac_ap, "enviados".to_owned(), bts)
             }
         })
-        .for_each(|(fecha, mac_ap, net, bts)| {
-            map.upsert(
-                fecha,
-                || DoubleHashMap::default(),
-                |v| *v.entry(mac_ap).or_default().entry(net).or_default() += bts,
-            )
-        });
+        .fold(
+            || TripleHashMap::default(),
+            |mut acc: TripleHashMap, (fecha, mac_ap, net, bts)| {
+                *acc.entry(fecha)
+                    .or_default()
+                    .entry(mac_ap)
+                    .or_default()
+                    .entry(net)
+                    .or_insert(0) += bts;
+                acc
+            },
+        )
+        .reduce(
+            || TripleHashMap::default(),
+            |mut this: TripleHashMap, other: TripleHashMap| {
+                for (fecha, v1) in other.into_iter() {
+                    for (mac_ap, v2) in v1.into_iter() {
+                        for (net, bts) in v2.into_iter() {
+                            *this
+                                .entry(fecha.clone())
+                                .or_default()
+                                .entry(mac_ap.clone())
+                                .or_default()
+                                .entry(net)
+                                .or_default() += bts;
+                        }
+                    }
+                }
+                this
+            },
+        );
 
-    Ok(map.into_iter().collect())
+    Ok(result)
     // let timestamp: i64 = line[..10].parse().unwrap();
     // let fecha = NaiveDateTime::from_timestamp(timestamp, 0)
     //     .date()
