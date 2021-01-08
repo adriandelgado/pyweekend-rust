@@ -1,5 +1,7 @@
+use chashmap::CHashMap;
 use chrono::NaiveDateTime;
 use plotters::prelude::*;
+use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use std::{
     collections::{HashMap, HashSet},
@@ -132,52 +134,63 @@ fn generar_grafico<P: AsRef<Path>>(dataset: P, map_macs: &FxHashMap<&str, &str>)
 
     Ok(())
 }
-
-fn total_bytes<P: AsRef<Path>>(
-    dataset: P,
-) -> io::Result<FxHashMap<String, FxHashMap<String, FxHashMap<String, u32>>>> {
-    let mut result: FxHashMap<String, FxHashMap<String, FxHashMap<String, u32>>> =
-        HashMap::with_capacity_and_hasher(179974, CustomHasher::default());
+type TripleHashMap = FxHashMap<String, FxHashMap<String, FxHashMap<String, u32>>>;
+type DoubleHashMap = FxHashMap<String, FxHashMap<String, u32>>;
+fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
     let dt = File::open(dataset)?;
-    let mut reader_dt = BufReader::new(dt);
-    let mut line = String::new();
-    reader_dt.read_line(&mut line)?;
-    line.clear();
-    loop {
-        match reader_dt.read_line(&mut line) {
-            Ok(bytes_read) => {
-                if bytes_read == 0 {
-                    break;
-                }
-                let timestamp: i64 = line[..10].parse().unwrap();
-                let fecha = NaiveDateTime::from_timestamp(timestamp, 0)
-                    .date()
-                    .to_string();
-                let mac_ap = line[27..42].to_owned();
-                let bts: u32 = line[43..49].parse().unwrap();
-                if &line[50..56] == "upload" {
-                    *result
-                        .entry(fecha)
-                        .or_default()
-                        .entry(mac_ap)
-                        .or_default()
-                        .entry("recibidos".to_owned())
-                        .or_insert(0) += bts;
-                } else {
-                    *result
-                        .entry(fecha)
-                        .or_default()
-                        .entry(mac_ap)
-                        .or_default()
-                        .entry("enviados".to_owned())
-                        .or_insert(0) += bts;
-                }
-                line.clear();
+    let reader_dt = BufReader::with_capacity(8 * 1024, dt);
+    let map = CHashMap::with_capacity(179974);
+    reader_dt
+        .lines()
+        .skip(1)
+        .par_bridge()
+        .map(|line| {
+            let line = line.unwrap();
+            let timestamp: i64 = line[..10].parse().unwrap();
+            let fecha = NaiveDateTime::from_timestamp(timestamp, 0)
+                .date()
+                .to_string();
+            let mac_ap = line[27..42].to_owned();
+            let bts: u32 = line[43..49].parse().unwrap();
+            if &line[50..56] == "upload" {
+                (fecha, mac_ap, "recibidos".to_owned(), bts)
+            } else {
+                (fecha, mac_ap, "enviados".to_owned(), bts)
             }
-            Err(err) => return Err(err),
-        }
-    }
-    Ok(result)
+        })
+        .for_each(|(fecha, mac_ap, net, bts)| {
+            map.upsert(
+                fecha,
+                || DoubleHashMap::default(),
+                |v| *v.entry(mac_ap).or_default().entry(net).or_default() += bts,
+            )
+        });
+
+    Ok(map.into_iter().collect())
+    // let timestamp: i64 = line[..10].parse().unwrap();
+    // let fecha = NaiveDateTime::from_timestamp(timestamp, 0)
+    //     .date()
+    //     .to_string();
+    // let mac_ap = line[27..42].to_owned();
+    // let bts: u32 = line[43..49].parse().unwrap();
+    // if &line[50..56] == "upload" {
+    //     *result
+    //         .entry(fecha)
+    //         .or_default()
+    //         .entry(mac_ap)
+    //         .or_default()
+    //         .entry("recibidos".to_owned())
+    //         .or_insert(0) += bts;
+    // } else {
+    //     *result
+    //         .entry(fecha)
+    //         .or_default()
+    //         .entry(mac_ap)
+    //         .or_default()
+    //         .entry("enviados".to_owned())
+    //         .or_insert(0) += bts;
+    // }
+    // Ok(result)
 }
 
 fn clientes_unicos<P: AsRef<Path>>(

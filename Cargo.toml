@@ -10,8 +10,10 @@ codegen-units = 1
 # debug = true
 
 [dependencies]
+rayon = "1.5"
 chrono = "0.4"
 rustc-hash = "1.1.0"
+chashmap = "2.2"
 
 [dependencies.plotters]
 version = "0.3"
