@@ -1,0 +1,19 @@
+[package]
+name = "rust"
+version = "0.1.0"
+authors = ["Adrian Delgado <ajdm_3000@hotmail.com>"]
+edition = "2018"
+
+[profile.release]
+lto = true
+codegen-units = 1
+# debug = true
+
+[dependencies]
+chrono = "0.4"
+rustc-hash = "1.1.0"
+
+[dependencies.plotters]
+version = "0.3"
+default-features = false
+features = ["bitmap_backend","bitmap_encoder"]
