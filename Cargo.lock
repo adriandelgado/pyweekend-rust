@@ -574,6 +574,7 @@ version = "0.1.0"
 dependencies = [
  "atoi",
  "chrono",
+ "lazy_static",
  "plotters",
  "rayon",
  "rustc-hash",

@@ -1,5 +1,6 @@
 use atoi::FromRadix10;
 use chrono::NaiveDateTime;
+use lazy_static::lazy_static;
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
@@ -17,14 +18,13 @@ type CustomHasher = BuildHasherDefault<FxHasher>;
 fn main() -> io::Result<()> {
     let dataset = Path::new("../datasets/logs-conexion.csv");
     let aps_espol = Path::new("../datasets/aps_espol.csv");
-    let map_macs = crear_cache_macs();
 
     let now0 = Instant::now();
-    let comunes = fab_mas_comunes(dataset, &map_macs)?;
+    let comunes = fab_mas_comunes(dataset)?;
     println!("fab_mas_comunes: {} ms", now0.elapsed().as_millis());
 
     let now1 = Instant::now();
-    generar_grafico(dataset, &map_macs)?;
+    generar_grafico(dataset)?;
     println!("generar_grafico: {} ms", now1.elapsed().as_millis());
 
     let now2 = Instant::now();
@@ -61,10 +61,7 @@ fn csv_lines<P: AsRef<Path>>(csv: P) -> impl Iterator<Item = Result<Vec<u8>, io:
     reader.split('\n' as u8).skip(1)
 }
 
-fn fab_mas_comunes<P: AsRef<Path>>(
-    dataset: P,
-    map_macs: &FxHashMap<&[u8; 6], &str>,
-) -> io::Result<Vec<(String, u32)>> {
+fn fab_mas_comunes<P: AsRef<Path>>(dataset: P) -> io::Result<Vec<(String, u32)>> {
     let mut counter: FxHashMap<&str, u32> =
         HashMap::with_capacity_and_hasher(77, CustomHasher::default());
     let mut dispositivos_previos: FxHashSet<Vec<u8>> =
@@ -82,7 +79,7 @@ fn fab_mas_comunes<P: AsRef<Path>>(
                 }
                 if dispositivos_previos.insert(line[11..26].to_owned()) {
                     let mac_oui: &[u8; 6] = line[11..17].try_into().unwrap();
-                    let fabricante = map_macs.get(mac_oui).expect(&format!(
+                    let fabricante = MAP_MACS.get(mac_oui).expect(&format!(
                         "mac rara: {}",
                         String::from_utf8_lossy(&line[11..17])
                     ));
@@ -99,14 +96,9 @@ fn fab_mas_comunes<P: AsRef<Path>>(
     Ok(result.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
 }
 
-fn generar_grafico<P: AsRef<Path>>(
-    dataset: P,
-    map_macs: &FxHashMap<&[u8; 6], &str>,
-) -> io::Result<()> {
-    let (fabricantes, cantidades): (Vec<String>, Vec<u32>) = fab_mas_comunes(dataset, map_macs)?
-        .into_iter()
-        .rev()
-        .unzip();
+fn generar_grafico<P: AsRef<Path>>(dataset: P) -> io::Result<()> {
+    let (fabricantes, cantidades): (Vec<String>, Vec<u32>) =
+        fab_mas_comunes(dataset)?.into_iter().rev().unzip();
     let root = BitMapBackend::new("top10_fabricantes.jpg", (1433, 860)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let mut chart = ChartBuilder::on(&root)
@@ -282,7 +274,8 @@ fn cambio_edificio<P: AsRef<Path>>(
 }
 
 #[rustfmt::skip]
-fn crear_cache_macs() -> FxHashMap<&'static [u8;6], &'static str> {
+lazy_static! {
+    static ref MAP_MACS: FxHashMap<&'static [u8;6], &'static str> = {
     let mut map_macs = HashMap::with_capacity_and_hasher(1276, CustomHasher::default());
     map_macs.insert(b"00A081", "ALCATEL DATA NETWORKS");
     map_macs.insert(b"002060", "ALCATEL ITALIA S.p.A.");
@@ -1561,4 +1554,5 @@ fn crear_cache_macs() -> FxHashMap<&'static [u8;6], &'static str> {
     map_macs.insert(b"FC2D5E", "zte corporation");
     map_macs.insert(b"FCC897", "zte corporation");
     map_macs
+    };
 }
