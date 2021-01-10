@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
     println!("generar_grafico: {} ms", now1.elapsed().as_millis());
 
     let now2 = Instant::now();
-    let dic: TripleHashMap = total_bytes(dataset)?;
+    let dic: TripleHashMap = total_bytes(dataset);
     println!("total_bytes: {} ms", now2.elapsed().as_millis());
 
     let mac_ap = "40A6E8:6C:5B:05";
@@ -71,6 +71,7 @@ fn fab_mas_comunes<P: AsRef<Path>>(dataset: P) -> io::Result<Vec<(String, u32)>>
     let mut line = Vec::new();
     reader_dt.read_until('\n' as u8, &mut line)?;
     line.clear();
+
     loop {
         match reader_dt.read_until('\n' as u8, &mut line) {
             Ok(bytes_read) => {
@@ -79,10 +80,9 @@ fn fab_mas_comunes<P: AsRef<Path>>(dataset: P) -> io::Result<Vec<(String, u32)>>
                 }
                 if dispositivos_previos.insert(line[11..26].to_owned()) {
                     let mac_oui: &[u8; 6] = line[11..17].try_into().unwrap();
-                    let fabricante = MAP_MACS.get(mac_oui).expect(&format!(
-                        "mac rara: {}",
-                        String::from_utf8_lossy(&line[11..17])
-                    ));
+                    let fabricante = MAP_MACS
+                        .get(mac_oui)
+                        .expect(&format!("mac rara: {}", String::from_utf8_lossy(mac_oui)));
                     *counter.entry(fabricante).or_insert(0) += 1;
                 }
                 line.clear();
@@ -142,7 +142,7 @@ fn generar_grafico<P: AsRef<Path>>(dataset: P) -> io::Result<()> {
     Ok(())
 }
 type TripleHashMap = FxHashMap<String, FxHashMap<String, FxHashMap<String, u32>>>;
-fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
+fn total_bytes<P: AsRef<Path>>(dataset: P) -> TripleHashMap {
     let result: TripleHashMap = csv_lines(dataset)
         .par_bridge()
         .map(|line| {
@@ -153,7 +153,7 @@ fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
                 .to_string();
             let mac_ap = String::from_utf8_lossy(&line[27..42]).into_owned();
             let bts = u32::from_radix_10(&line[43..49]).0;
-            if &line[50..56] == b"upload" {
+            if line[50] == 'u' as u8 {
                 (fecha, mac_ap, "recibidos".to_owned(), bts)
             } else {
                 (fecha, mac_ap, "enviados".to_owned(), bts)
@@ -191,7 +191,7 @@ fn total_bytes<P: AsRef<Path>>(dataset: P) -> io::Result<TripleHashMap> {
             },
         );
 
-    Ok(result)
+    result
 }
 
 fn clientes_unicos<P: AsRef<Path>>(
@@ -214,7 +214,7 @@ fn clientes_unicos<P: AsRef<Path>>(
                     break;
                 }
                 if &line[27..42] == mac_ap.as_bytes()
-                    && &line[50..56] == b"upload"
+                    && line[50] == 'u' as u8
                     && previas.insert(line[11..26].to_owned())
                 {
                     let current = i64::from_radix_10(&line[..10]).0;
@@ -275,7 +275,7 @@ fn cambio_edificio<P: AsRef<Path>>(
 
 #[rustfmt::skip]
 lazy_static! {
-    static ref MAP_MACS: FxHashMap<&'static [u8;6], &'static str> = {
+    static ref MAP_MACS: FxHashMap<&'static [u8; 6], &'static str> = {
     let mut map_macs = HashMap::with_capacity_and_hasher(1276, CustomHasher::default());
     map_macs.insert(b"00A081", "ALCATEL DATA NETWORKS");
     map_macs.insert(b"002060", "ALCATEL ITALIA S.p.A.");
