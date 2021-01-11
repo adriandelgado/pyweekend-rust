@@ -1,6 +1,5 @@
 use atoi::FromRadix10;
 use chrono::NaiveDateTime;
-use lazy_static::lazy_static;
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
@@ -13,8 +12,14 @@ use std::{
     path::Path,
     time::Instant,
 };
-include!(concat!(env!("OUT_DIR"), "/map_oui.rs"));
 
+include!(concat!(env!("OUT_DIR"), "/map_oui.rs"));
+fn vendor_lookup(mac_oui: &[u8; 6]) -> &'static str {
+    let idx = MAP_MACS
+        .binary_search_by(|probe| probe.0.cmp(mac_oui))
+        .unwrap();
+    MAP_MACS[idx].1
+}
 type CustomHasher = BuildHasherDefault<FxHasher>;
 fn main() -> io::Result<()> {
     let dataset = Path::new("../datasets/logs-conexion.csv");
@@ -81,9 +86,7 @@ fn fab_mas_comunes<P: AsRef<Path>>(dataset: P) -> io::Result<Vec<(String, u32)>>
                 }
                 if dispositivos_previos.insert(line[11..26].to_owned()) {
                     let mac_oui: &[u8; 6] = line[11..17].try_into().unwrap();
-                    let fabricante = MAP_MACS
-                        .get(mac_oui)
-                        .expect(&format!("mac rara: {}", String::from_utf8_lossy(mac_oui)));
+                    let fabricante = vendor_lookup(mac_oui);
                     *counter.entry(fabricante).or_insert(0) += 1;
                 }
                 line.clear();
