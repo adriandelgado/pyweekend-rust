@@ -13,11 +13,9 @@ use std::{
     time::Instant,
 };
 
-include!(concat!(env!("OUT_DIR"), "/map_oui.rs"));
+core::include!(concat!(env!("OUT_DIR"), "/map_oui.rs"));
 fn vendor_lookup(mac_oui: &[u8; 6]) -> &'static str {
-    let idx = MAP_MACS
-        .binary_search_by(|probe| probe.0.cmp(mac_oui))
-        .unwrap();
+    let idx = MAP_MACS.binary_search_by_key(mac_oui, |(k, _)| *k).unwrap();
     MAP_MACS[idx].1
 }
 type CustomHasher = BuildHasherDefault<FxHasher>;

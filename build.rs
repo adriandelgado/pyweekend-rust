@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -21,6 +22,14 @@ fn main() {
         line.clear();
     }
     data.sort_unstable();
+    let mut logs = BufReader::new(File::open("../datasets/logs-conexion.csv").unwrap());
+    let mut unique_macs = HashSet::new();
+    while logs.read_until(b'\n', &mut line).unwrap() != 0 {
+        let mac_oui = &line[11..17];
+        unique_macs.insert(mac_oui.to_owned());
+        line.clear();
+    }
+    data.retain(|(k, _)| unique_macs.contains(k));
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("map_oui.rs");
