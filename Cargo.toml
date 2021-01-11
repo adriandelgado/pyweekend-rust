@@ -16,6 +16,9 @@ rustc-hash = "1.1.0"
 atoi = "0.4"
 lazy_static = "1.4"
 
+[build-dependencies]
+ureq = "2.0"
+
 [dependencies.plotters]
 version = "0.3"
 default-features = false
